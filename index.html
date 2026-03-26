@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Perceptron: L vs T Classifier</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(5, 50px);
+            gap: 2px;
+            justify-content: center;
+            margin: 20px auto;
+        }
+        .cell {
+            width: 50px; height: 50px;
+            background-color: white;
+            border: 1px solid #333;
+            cursor: pointer;
+        }
+        .cell.active { background-color: black; }
+        #result { font-size: 24px; font-weight: bold; margin-top: 20px; color: blue; }
+        button { padding: 10px 20px; font-size: 16px; margin: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <h1>Perceptron: "L" vs "T" Classifier</h1>
+    <p>Draw a shape below and the Perceptron will guess what it is!</p>
+
+    <div class="grid" id="drawingGrid"></div>
+
+    <button onclick="clearGrid()">Clear Grid</button>
+    <button onclick="guessShape()">Make Prediction</button>
+
+    <div id="result">Waiting for input...</div>
+
+    <script>
+        // 1 & 2. FETCH THE DATA AND TRAIN
+        let weights = new Array(25).fill(0);
+        let bias = 0;
+        const learningRate = 0.01;
+
+        function activationFunction(z) {
+            return z >= 0 ? 1 : 0;
+        }
+
+        // Automatically grab file
+        async function loadAndTrain() {
+            try {
+                // Grabs file from the same folder
+                const response = await fetch('shapes_data.csv');
+                const csvData = await response.text();
+
+                // Parse the CSV data
+                const lines = csvData.trim().split('\n').slice(1);
+                const X_train = [];
+                const y_train = [];
+
+                lines.forEach(line => {
+                    const values = line.split(',').map(Number);
+                    X_train.push(values.slice(0, 25));
+                    y_train.push(values[25]);
+                });
+
+                // Train the model
+                for (let epoch = 0; epoch < 100; epoch++) {
+                    for (let i = 0; i < X_train.length; i++) {
+                        let linearProduct = bias;
+                        for (let j = 0; j < 25; j++) {
+                            linearProduct += X_train[i][j] * weights[j];
+                        }
+
+                        let y_pred = activationFunction(linearProduct);
+                        let update = learningRate * (y_pred - y_train[i]);
+
+                        for (let j = 0; j < 25; j++) {
+                            weights[j] -= update * X_train[i][j];
+                        }
+                        bias -= update;
+                    }
+                }
+                console.log("Training complete! Weights ready.");
+                document.getElementById("result").innerText = "Training complete! Draw a shape.";
+
+            } catch (error) {
+                document.getElementById("result").innerText = "Error loading CSV. Make sure you use a local server!";
+                console.error(error);
+            }
+        }
+
+        // 3. WEBSITE INTERFACE
+        const gridElement = document.getElementById("drawingGrid");
+        let currentPixels = new Array(25).fill(0);
+
+        // Build the clickable grid
+        for (let i = 0; i < 25; i++) {
+            let cell = document.createElement("div");
+            cell.className = "cell";
+            cell.onclick = function() {
+                // Toggle pixel between 0 and 1
+                if (currentPixels[i] === 0) {
+                    currentPixels[i] = 1;
+                    cell.classList.add("active");
+                } else {
+                    currentPixels[i] = 0;
+                    cell.classList.remove("active");
+                }
+            };
+            gridElement.appendChild(cell);
+        }
+
+        function clearGrid() {
+            currentPixels.fill(0);
+            document.querySelectorAll(".cell").forEach(cell => cell.classList.remove("active"));
+            document.getElementById("result").innerText = "Waiting for input...";
+        }
+
+        function guessShape() {
+            let linearProduct = bias;
+            for (let i = 0; i < 25; i++) {
+                linearProduct += currentPixels[i] * weights[i];
+            }
+            let prediction = activationFunction(linearProduct);
+
+            if (prediction === 1) {
+                document.getElementById("result").innerText = "The Perceptron guesses: It's an 'L'!";
+            } else {
+                document.getElementById("result").innerText = "The Perceptron guesses: It's a 'T'!";
+            }
+        }
+
+        // Train Model while page loads (just learned I can do this)
+        window.onload = loadAndTrain;
+
+    </script>
+</body>
+</html>
